@@ -58,8 +58,10 @@ public class NioServerSocketChannel extends AbstractNioMessageChannel
 
     private static ServerSocketChannel newChannel(SelectorProvider provider, InternetProtocolFamily family) {
         try {
+            // 创建一个channel
             ServerSocketChannel channel =
                     SelectorProviderUtil.newChannel(OPEN_SERVER_SOCKET_CHANNEL_WITH_FAMILY, provider, family);
+            // 打开一个服务端套接字通道对象
             return channel == null ? provider.openServerSocketChannel() : channel;
         } catch (IOException e) {
             throw new ChannelException("Failed to open a socket.", e);
@@ -94,6 +96,7 @@ public class NioServerSocketChannel extends AbstractNioMessageChannel
      */
     public NioServerSocketChannel(ServerSocketChannel channel) {
         super(null, channel, SelectionKey.OP_ACCEPT);
+        // 设置config属性
         config = new NioServerSocketChannelConfig(this, javaChannel().socket());
     }
 

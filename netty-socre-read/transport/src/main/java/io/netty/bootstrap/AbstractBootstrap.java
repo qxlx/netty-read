@@ -94,6 +94,7 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
         if (this.group != null) {
             throw new IllegalStateException("group set already");
         }
+        // bossGroup 赋值过程
         this.group = group;
         return self();
     }
@@ -109,6 +110,7 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
      * {@link Channel} implementation has no no-args constructor.
      */
     public B channel(Class<? extends C> channelClass) {
+        // 直接调用channelFactory工厂,创建一个ReflectiveChannelFactory 工厂方法
         return channelFactory(new ReflectiveChannelFactory<C>(
                 ObjectUtil.checkNotNull(channelClass, "channelClass")
         ));
@@ -124,6 +126,7 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
             throw new IllegalStateException("channelFactory set already");
         }
 
+        // channelFactory赋值
         this.channelFactory = channelFactory;
         return self();
     }
@@ -217,6 +220,7 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
      * call the super method in that case.
      */
     public B validate() {
+        // group指的是bossGroup
         if (group == null) {
             throw new IllegalStateException("group not set");
         }
@@ -280,38 +284,55 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
      * Create a new {@link Channel} and bind it.
      */
     public ChannelFuture bind(SocketAddress localAddress) {
+        // 相关参数的检查
         validate();
         return doBind(ObjectUtil.checkNotNull(localAddress, "localAddress"));
     }
 
+    // 达到初始化并且绑定serverSocket服务
+    // 构建者模式+Promise + Future异步执行
     private ChannelFuture doBind(final SocketAddress localAddress) {
+        // 进行初始化并注册
         final ChannelFuture regFuture = initAndRegister();
+        // 获取到注册的通道
         final Channel channel = regFuture.channel();
+        // 判断是否有异常
         if (regFuture.cause() != null) {
             return regFuture;
         }
 
+        // 判断是否执行完毕
         if (regFuture.isDone()) {
             // At this point we know that the registration was complete and successful.
+            // 此时 注册完成并且成功
             ChannelPromise promise = channel.newPromise();
+            // 进行socket绑定
             doBind0(regFuture, channel, localAddress, promise);
             return promise;
         } else {
             // Registration future is almost always fulfilled already, but just in case it's not.
+            // 没有完成
             final PendingRegistrationPromise promise = new PendingRegistrationPromise(channel);
+            // 添加一个监听器 InitAndRegister执行完成后
+            // 调用operationComplete doBind0进行socket绑定
             regFuture.addListener(new ChannelFutureListener() {
+
+                // 当操作挖成是回调该方法
                 @Override
                 public void operationComplete(ChannelFuture future) throws Exception {
+                    // 获取到异常对象
                     Throwable cause = future.cause();
                     if (cause != null) {
                         // Registration on the EventLoop failed so fail the ChannelPromise directly to not cause an
                         // IllegalStateException once we try to access the EventLoop of the Channel.
+                        // 设置为失败
                         promise.setFailure(cause);
                     } else {
+                        // 注册成功,设置执行器
                         // Registration was successful, so set the correct executor to use.
                         // See https://github.com/netty/netty/issues/2586
                         promise.registered();
-
+                        // 进一步的绑定操作
                         doBind0(regFuture, channel, localAddress, promise);
                     }
                 }
@@ -321,8 +342,11 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
     }
 
     final ChannelFuture initAndRegister() {
+        // 结论: channel为反射创建对象
         Channel channel = null;
         try {
+            // 初始化
+            // 这行代码的作用为通过反射产生来一个NioServerSocketChannel类的实例。
             channel = channelFactory.newChannel();
             init(channel);
         } catch (Throwable t) {
@@ -336,6 +360,7 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
             return new DefaultChannelPromise(new FailedChannel(), GlobalEventExecutor.INSTANCE).setFailure(t);
         }
 
+        // 注册channel
         ChannelFuture regFuture = config().group().register(channel);
         if (regFuture.cause() != null) {
             if (channel.isRegistered()) {
@@ -357,6 +382,7 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
         return regFuture;
     }
 
+    // 抽象方法
     abstract void init(Channel channel) throws Exception;
 
     Collection<ChannelInitializerExtension> getInitializerExtensions() {
@@ -389,6 +415,7 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
      * the {@link ChannelHandler} to use for serving the requests.
      */
     public B handler(ChannelHandler handler) {
+        // 设置handler
         this.handler = ObjectUtil.checkNotNull(handler, "handler");
         return self();
     }

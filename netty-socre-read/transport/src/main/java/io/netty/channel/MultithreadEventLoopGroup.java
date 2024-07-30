@@ -36,6 +36,7 @@ public abstract class MultithreadEventLoopGroup extends MultithreadEventExecutor
 
     private static final int DEFAULT_EVENT_LOOP_THREADS;
 
+    // 获取属性对应的值,获取不到 就是CPU的两倍
     static {
         DEFAULT_EVENT_LOOP_THREADS = Math.max(1, SystemPropertyUtil.getInt(
                 "io.netty.eventLoopThreads", NettyRuntime.availableProcessors() * 2));
@@ -49,6 +50,7 @@ public abstract class MultithreadEventLoopGroup extends MultithreadEventExecutor
      * @see MultithreadEventExecutorGroup#MultithreadEventExecutorGroup(int, Executor, Object...)
      */
     protected MultithreadEventLoopGroup(int nThreads, Executor executor, Object... args) {
+        // 不指定线程数,则使用默认自定义的线程数
         super(nThreads == 0 ? DEFAULT_EVENT_LOOP_THREADS : nThreads, executor, args);
     }
 
@@ -83,6 +85,7 @@ public abstract class MultithreadEventLoopGroup extends MultithreadEventExecutor
 
     @Override
     public ChannelFuture register(Channel channel) {
+        // 调用NIOEventLoop对象中的register方法
         return next().register(channel);
     }
 

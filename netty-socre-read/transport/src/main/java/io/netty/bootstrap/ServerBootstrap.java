@@ -81,10 +81,13 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
      * {@link Channel}'s.
      */
     public ServerBootstrap group(EventLoopGroup parentGroup, EventLoopGroup childGroup) {
+        // 初始化父类 将bossGroup赋值
         super.group(parentGroup);
+        // 如果childGroup变量 如果已经有值,抛出异常
         if (this.childGroup != null) {
             throw new IllegalStateException("childGroup set already");
         }
+        // childGroup = workerGroup赋值
         this.childGroup = ObjectUtil.checkNotNull(childGroup, "childGroup");
         return this;
     }
@@ -124,15 +127,22 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
      * Set the {@link ChannelHandler} which is used to serve the request for the {@link Channel}'s.
      */
     public ServerBootstrap childHandler(ChannelHandler childHandler) {
+        // 设置childHanlder
         this.childHandler = ObjectUtil.checkNotNull(childHandler, "childHandler");
+        // this是当前对象的引用
         return this;
     }
 
     @Override
     void init(Channel channel) {
+        // 1.设置新介入的channel的option
         setChannelOptions(channel, newOptionsArray(), logger);
+
+        // 2、设置新接入channel的attr
         setAttributes(channel, newAttributesArray());
 
+        // 3、设置handler到pipeline上
+        // 获取到通道流水线对象
         ChannelPipeline p = channel.pipeline();
 
         final EventLoopGroup currentChildGroup = childGroup;
@@ -141,6 +151,8 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
         final Entry<AttributeKey<?>, Object>[] currentChildAttrs = newAttributesArray(childAttrs);
         final Collection<ChannelInitializerExtension> extensions = getInitializerExtensions();
 
+        // 4.pipeline 添加一个channelInitializer对象 ServerBootstrapAcceptor
+        // 通道初始化对象
         p.addLast(new ChannelInitializer<Channel>() {
             @Override
             public void initChannel(final Channel ch) {
@@ -150,6 +162,9 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
                     pipeline.addLast(handler);
                 }
 
+                // 这是一个接入器，专门接受新请求，把新的请求扔给某个事件循环器
+                // 看到这里，我们发现其实init只是初始化了一些基本的配置和属性，
+                // 以及在pipeline上加入了一个接入器，用来专门接受新连接，并没有启动服务.
                 ch.eventLoop().execute(new Runnable() {
                     @Override
                     public void run() {

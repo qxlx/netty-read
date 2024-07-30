@@ -70,7 +70,10 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
     protected AbstractChannel(Channel parent) {
         this.parent = parent;
         id = newId();
+        // 用于负责底层的connect register read write操作等
         unsafe = newUnsafe();
+        // 底层实际是 DefaultChannelPipeline
+        // 每个Channel都有自己的pipeline，当有请求事件发生时，pipeline负责调用相应的hander进行处理
         pipeline = newChannelPipeline();
     }
 
@@ -463,6 +466,7 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
         @Override
         public final void register(EventLoop eventLoop, final ChannelPromise promise) {
             ObjectUtil.checkNotNull(eventLoop, "eventLoop");
+            // 判断该channel是否已经被注册到eventLoop中
             if (isRegistered()) {
                 promise.setFailure(new IllegalStateException("registered to an event loop already"));
                 return;
@@ -473,16 +477,18 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
                 return;
             }
 
+            // 1 将eventLoop设置在NioServerSocketChannel上
             AbstractChannel.this.eventLoop = eventLoop;
 
+            // 判断该当前线程是否为该eventLoop中拥有的线程,如果是 则直接注册,不是 添加一个任务到该线程中
             if (eventLoop.inEventLoop()) {
                 register0(promise);
             } else {
                 try {
-                    eventLoop.execute(new Runnable() {
+                    eventLoop.execute(new Runnable() { // ⭐️
                         @Override
                         public void run() {
-                            register0(promise);
+                            register0(promise); // 分析
                         }
                     });
                 } catch (Throwable t) {
@@ -504,6 +510,7 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
                     return;
                 }
                 boolean firstRegistration = neverRegistered;
+                // ⭐️
                 doRegister();
                 neverRegistered = false;
                 registered = true;

@@ -33,31 +33,42 @@ import io.netty.handler.ssl.SslContext;
  */
 public final class DiscardServer {
 
+    // 设置端口号 8009
     static final int PORT = Integer.parseInt(System.getProperty("port", "8009"));
 
     public static void main(String[] args) throws Exception {
         // Configure SSL.
         final SslContext sslCtx = ServerUtil.buildSslContext();
 
+        // 创建主事件循环组
         EventLoopGroup bossGroup = new NioEventLoopGroup(1);
+        // 创建从事件循环组
         EventLoopGroup workerGroup = new NioEventLoopGroup();
         try {
+            // 创建一个server启动器
             ServerBootstrap b = new ServerBootstrap();
+            // 将两个事件循环组对象放入server启动器中
             b.group(bossGroup, workerGroup)
+                    // 服务端通道实现类为 NioServerSocketChannel
              .channel(NioServerSocketChannel.class)
+                    // 设置处理serversocket通道接收到的客户端事件处理器,日志打印器
              .handler(new LoggingHandler(LogLevel.INFO))
+                    // 设置接收socket客户端请求的处理器
              .childHandler(new ChannelInitializer<SocketChannel>() {
                  @Override
                  public void initChannel(SocketChannel ch) {
+                     // 将处理器放入socket通道对象的通道流水先对象中处理
                      ChannelPipeline p = ch.pipeline();
                      if (sslCtx != null) {
                          p.addLast(sslCtx.newHandler(ch.alloc()));
                      }
+                     // 尾部添加自定义数据处理器
                      p.addLast(new DiscardServerHandler());
                  }
              });
 
             // Bind and start to accept incoming connections.
+            // 绑定端口 开始处理
             ChannelFuture f = b.bind(PORT).sync();
 
             // Wait until the server socket is closed.

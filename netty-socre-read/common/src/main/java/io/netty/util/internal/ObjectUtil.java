@@ -96,6 +96,7 @@ public final class ObjectUtil {
      * Otherwise, returns the argument.
      */
     public static int checkPositive(int i, String name) {
+        // 线程数<= 0 抛出异常
         if (i <= INT_ZERO) {
             throw new IllegalArgumentException(name + " : " + i + " (expected: > 0)");
         }
