@@ -484,7 +484,7 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
             if (eventLoop.inEventLoop()) {
                 register0(promise);
             } else {
-                try {
+                try { // 线程切换 主线程 切换到线程池进行执行
                     eventLoop.execute(new Runnable() { // ⭐️
                         @Override
                         public void run() {
@@ -575,7 +575,7 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
             if (!wasActive && isActive()) {
                 invokeLater(new Runnable() {
                     @Override
-                    public void run() {
+                    public void run() { // 激活 把pipleine所有的handler channelActive进行调用
                         pipeline.fireChannelActive();
                     }
                 });

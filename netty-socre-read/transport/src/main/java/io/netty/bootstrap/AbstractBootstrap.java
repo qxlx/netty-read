@@ -292,7 +292,7 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
     // 达到初始化并且绑定serverSocket服务
     // 构建者模式+Promise + Future异步执行
     private ChannelFuture doBind(final SocketAddress localAddress) {
-        // 进行初始化并注册
+        // SSC进行初始化并注册
         final ChannelFuture regFuture = initAndRegister();
         // 获取到注册的通道
         final Channel channel = regFuture.channel();
@@ -306,7 +306,7 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
             // At this point we know that the registration was complete and successful.
             // 此时 注册完成并且成功
             ChannelPromise promise = channel.newPromise();
-            // 进行socket绑定
+            // 进行socket绑定 端口绑定
             doBind0(regFuture, channel, localAddress, promise);
             return promise;
         } else {
@@ -341,6 +341,9 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
         }
     }
 
+    // SSC创建
+    // SSC在selecot的注册
+    // 异步操作
     final ChannelFuture initAndRegister() {
         // 结论: channel为反射创建对象
         Channel channel = null;

@@ -74,8 +74,9 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
             AtomicReferenceFieldUpdater.newUpdater(
                     SingleThreadEventExecutor.class, ThreadProperties.class, "threadProperties");
 
+    // 任务队列
     private final Queue<Runnable> taskQueue;
-
+    // 线程
     private volatile Thread thread;
     @SuppressWarnings("unused")
     private volatile ThreadProperties threadProperties;
@@ -339,16 +340,21 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
      * before.
      */
     protected void addTask(Runnable task) {
+        // 1.task不等于空
         ObjectUtil.checkNotNull(task, "task");
+        // 2.先添加到任务队列中
         if (!offerTask(task)) {
+            // 3.添加失败 直接返回拒绝
             reject(task);
         }
     }
 
     final boolean offerTask(Runnable task) {
+        // 如果已经停止,
         if (isShutdown()) {
             reject();
         }
+        // 添加进入
         return taskQueue.offer(task);
     }
 
@@ -555,6 +561,7 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
 
     @Override
     public boolean inEventLoop(Thread thread) {
+        // 当前线程 是否等于  this.thread  = nioEventlLoop的线程 第一次没有创建
         return thread == this.thread;
     }
 
@@ -828,10 +835,15 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
         execute(ObjectUtil.checkNotNull(task, "task"), false);
     }
 
+    // 是否立即执行
     private void execute(Runnable task, boolean immediate) {
+        // 当前线程是否是NIO 线程
         boolean inEventLoop = inEventLoop();
+        // 添加到任务队列中
         addTask(task);
+        // 是否是nio线程 ,不是的话
         if (!inEventLoop) {
+            // 开启一个线程
             startThread();
             if (isShutdown()) {
                 boolean reject = false;
@@ -944,11 +956,16 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
 
     private static final long SCHEDULE_PURGE_INTERVAL = TimeUnit.SECONDS.toNanos(1);
 
+    // NIO 线程 只会启动一次,启动成功后 直接从taskQueue 获取数据
     private void startThread() {
+        // state = ST_NOT_STARTED; 初始值
         if (state == ST_NOT_STARTED) {
+            // CAS 状态 更新 not_started -> st_started 代表线程启动
             if (STATE_UPDATER.compareAndSet(this, ST_NOT_STARTED, ST_STARTED)) {
+                // 初始化值为false
                 boolean success = false;
                 try {
+                    // 做真正的NIO启动
                     doStartThread();
                     success = true;
                 } finally {
@@ -978,8 +995,10 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
         return false;
     }
 
+    // 只会创建一次
     private void doStartThread() {
         assert thread == null;
+        // 如下就是NIO线程
         executor.execute(new Runnable() {
             @Override
             public void run() {
@@ -991,6 +1010,7 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
                 boolean success = false;
                 updateLastExecutionTime();
                 try {
+                    // 核心 ⭐️
                     SingleThreadEventExecutor.this.run();
                     success = true;
                 } catch (Throwable t) {

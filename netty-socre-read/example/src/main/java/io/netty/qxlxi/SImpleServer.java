@@ -18,8 +18,6 @@ public class SImpleServer {
 
         ServerBootstrap bootstrap = new ServerBootstrap();
         bootstrap.group(bossGrpup,wrokerGrpup)
-//                .option()
-                // 反射执行
                 .channel(NioServerSocketChannel.class)
                 .handler(new SimpleServerHandler())
                 .childHandler(new ChannelInitializer<SocketChannel>() {

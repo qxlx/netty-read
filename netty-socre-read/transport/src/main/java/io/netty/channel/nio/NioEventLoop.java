@@ -70,6 +70,7 @@ public final class NioEventLoop extends SingleThreadEventLoop {
     private final IntSupplier selectNowSupplier = new IntSupplier() {
         @Override
         public int get() throws Exception {
+            // select 监听事件 阻塞  用不阻塞
             return selectNow();
         }
     };
@@ -113,9 +114,12 @@ public final class NioEventLoop extends SingleThreadEventLoop {
     }
 
     /**
+     * 封装NIO的方式
      * The NIO {@link Selector}.
      */
+    // 选择器什么时候被创建的 被优化的  基于数组结构
     private Selector selector;
+    // 原始的 基于set结构
     private Selector unwrappedSelector;
     private SelectedSelectionKeySet selectedKeys;
 
@@ -136,6 +140,7 @@ public final class NioEventLoop extends SingleThreadEventLoop {
     private int cancelledKeys;
     private boolean needsToSelectAgain;
 
+    // 构造方法进行初始化
     NioEventLoop(NioEventLoopGroup parent, Executor executor, SelectorProvider selectorProvider,
                  SelectStrategy strategy, RejectedExecutionHandler rejectedExecutionHandler,
                  EventLoopTaskQueueFactory taskQueueFactory, EventLoopTaskQueueFactory tailTaskQueueFactory) {
@@ -143,7 +148,9 @@ public final class NioEventLoop extends SingleThreadEventLoop {
                 rejectedExecutionHandler);
         this.provider = ObjectUtil.checkNotNull(selectorProvider, "selectorProvider");
         this.selectStrategy = ObjectUtil.checkNotNull(strategy, "selectStrategy");
+        // NIO的封装
         final SelectorTuple selectorTuple = openSelector();
+        // 创建selector
         this.selector = selectorTuple.selector;
         this.unwrappedSelector = selectorTuple.unwrappedSelector;
     }
@@ -171,6 +178,7 @@ public final class NioEventLoop extends SingleThreadEventLoop {
         }
     }
 
+    // 完成selector的创建
     private SelectorTuple openSelector() {
         final Selector unwrappedSelector;
         try {
@@ -500,6 +508,9 @@ public final class NioEventLoop extends SingleThreadEventLoop {
         }
     }
 
+    // ⭐️
+    // io任务 普通任务 定时任务 网络通信
+    // eventLoop
     @Override
     protected void run() {
         int selectCnt = 0;
@@ -507,6 +518,9 @@ public final class NioEventLoop extends SingleThreadEventLoop {
             try {
                 int strategy;
                 try {
+                    // hasTasks() 普通任务 或者 定时任务
+                    // 1.如果存在普通任务 selectNow 不阻塞
+                    // 如果没有普通任务就阻塞
                     strategy = selectStrategy.calculateStrategy(selectNowSupplier, hasTasks());
                     switch (strategy) {
                     case SelectStrategy.CONTINUE:
