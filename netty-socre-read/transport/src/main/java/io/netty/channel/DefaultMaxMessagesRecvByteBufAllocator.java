@@ -95,12 +95,12 @@ public abstract class DefaultMaxMessagesRecvByteBufAllocator implements MaxMessa
         private int maxMessagePerRead;
         private int totalMessages;
         private int totalBytesRead;
-        private int attemptedBytesRead;
-        private int lastBytesRead;
+        private int attemptedBytesRead;//bytebuf的可写容量,第一次就是总的byteBuf的容量
+        private int lastBytesRead; // 这次读的数据
         private final boolean respectMaybeMoreData = DefaultMaxMessagesRecvByteBufAllocator.this.respectMaybeMoreData;
         private final UncheckedBooleanSupplier defaultMaybeMoreSupplier = new UncheckedBooleanSupplier() {
             @Override
-            public boolean get() {
+            public boolean get() { // true 当前读到的数据 byteBuf写满了 否则没有写满 (已经万事了)
                 return attemptedBytesRead == lastBytesRead;
             }
         };

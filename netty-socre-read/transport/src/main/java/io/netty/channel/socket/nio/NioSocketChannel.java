@@ -349,10 +349,10 @@ public class NioSocketChannel extends AbstractNioByteChannel implements io.netty
         javaChannel().close();
     }
 
-    @Override
+    @Override // 通过java原生的Sovketchannel 往bytebuf中写入数据 int是返回值 代表写入多少数据
     protected int doReadBytes(ByteBuf byteBuf) throws Exception {
         final RecvByteBufAllocator.Handle allocHandle = unsafe().recvBufAllocHandle();
-        allocHandle.attemptedBytesRead(byteBuf.writableBytes());
+        allocHandle.attemptedBytesRead(byteBuf.writableBytes()); // 试图把bytebuf 填满
         return byteBuf.writeBytes(javaChannel(), allocHandle.attemptedBytesRead());
     }
 

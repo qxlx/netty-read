@@ -75,7 +75,7 @@ public abstract class AbstractNioMessageChannel extends AbstractNioChannel {
             Throwable exception = null;
             try {
                 try {
-                    do {
+                    do {// ⭐️
                         int localRead = doReadMessages(readBuf);
                         if (localRead == 0) {
                             break;
@@ -92,8 +92,12 @@ public abstract class AbstractNioMessageChannel extends AbstractNioChannel {
                 }
 
                 int size = readBuf.size();
+                // 遍历处理
                 for (int i = 0; i < size; i ++) {
                     readPending = false;
+                    // 消费过程
+                    // readBuf.get(i) 获取nioSocketChannel
+                    // 触发pipiline的Read功能
                     pipeline.fireChannelRead(readBuf.get(i));
                 }
                 readBuf.clear();
