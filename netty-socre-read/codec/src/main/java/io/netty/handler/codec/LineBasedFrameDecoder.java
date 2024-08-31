@@ -87,6 +87,8 @@ public class LineBasedFrameDecoder extends ByteToMessageDecoder {
 
     @Override
     protected final void decode(ChannelHandlerContext ctx, ByteBuf in, List<Object> out) throws Exception {
+        // 一次只处理一个完整的数据
+        // 只处理一个qxlx
         Object decoded = decode(ctx, in);
         if (decoded != null) {
             out.add(decoded);
@@ -102,19 +104,24 @@ public class LineBasedFrameDecoder extends ByteToMessageDecoder {
      *                          be created.
      */
     protected Object decode(ChannelHandlerContext ctx, ByteBuf buffer) throws Exception {
+        // 找到\N 找到就是对应的位置
         final int eol = findEndOfLine(buffer);
         if (!discarding) {
+            // 找到了
             if (eol >= 0) {
                 final ByteBuf frame;
                 final int length = eol - buffer.readerIndex();
+                // 分隔符位置
                 final int delimLength = buffer.getByte(eol) == '\r'? 2 : 1;
 
+                // 超过最大范围
                 if (length > maxLength) {
                     buffer.readerIndex(eol + delimLength);
                     fail(ctx, length);
                     return null;
                 }
 
+                // 是否跳过分隔符 不显示
                 if (stripDelimiter) {
                     frame = buffer.readRetainedSlice(length);
                     buffer.skipBytes(delimLength);

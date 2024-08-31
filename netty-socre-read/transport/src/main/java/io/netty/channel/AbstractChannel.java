@@ -848,6 +848,7 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
             }
         }
 
+        // netty写入
         @Override
         public final void write(Object msg, ChannelPromise promise) {
             assertEventLoop();
@@ -870,7 +871,14 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
 
             int size;
             try {
+                // msg ByteBUf| fileRegion文件下载
                 msg = filterOutboundMessage(msg);
+                // 计算传输的数据 大小的目的
+                // 不会把数据写到SOcket 直接写到cliet
+                // 写到ChannelOutBoundBuffer
+                // 直到flush
+                // netty 为了防止消息的丢失 , 设置一个高低水位线
+                // 如果写的数据 过多 不会在写入到channelOutBoundBuffer中了
                 size = pipeline.estimatorHandle().size(msg);
                 if (size < 0) {
                     size = 0;
@@ -884,24 +892,36 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
                 return;
             }
 
+            // 专门用于输出 OutBoundBuffer addMessage
+            //     // 创建一个Entry 对象
             outboundBuffer.addMessage(msg, size, promise);
+            // 如何把channelOutBoundBuffer 存储数据 输出到socket 缓冲区中 SEND
+            // flush() 底层 NIO写操作
+            // result
+            // 1.TCP socket缓冲区 写满了,数据暂时发送不出去了
+            // 2.数据正常发送完毕
+            // 3.
         }
 
         @Override
         public final void flush() {
             assertEventLoop();
 
+            // 获取outboundBuffer
             ChannelOutboundBuffer outboundBuffer = this.outboundBuffer;
+            // 判断处理
             if (outboundBuffer == null) {
                 return;
             }
-
+            // 从outboundBuffer中  数据标记为flush状态
             outboundBuffer.addFlush();
+            // 获取flush状态的Entry的数据
             flush0();
         }
 
         @SuppressWarnings("deprecation")
         protected void flush0() {
+            // 状态判断
             if (inFlush0) {
                 // Avoid re-entrance
                 return;
@@ -915,6 +935,7 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
             inFlush0 = true;
 
             // Mark all pending write requests as failure if the channel is inactive.
+            //
             if (!isActive()) {
                 try {
                     // Check if we need to generate the exception at all.
@@ -933,6 +954,7 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
             }
 
             try {
+                // 核心 ⭐️
                 doWrite(outboundBuffer);
             } catch (Throwable t) {
                 handleWriteError(t);

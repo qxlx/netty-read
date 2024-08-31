@@ -75,7 +75,7 @@ public abstract class AbstractNioMessageChannel extends AbstractNioChannel {
             Throwable exception = null;
             try {
                 try {
-                    do {// ⭐️
+                    do {// ⭐️ 创建一个SocketChannel对象
                         int localRead = doReadMessages(readBuf);
                         if (localRead == 0) {
                             break;

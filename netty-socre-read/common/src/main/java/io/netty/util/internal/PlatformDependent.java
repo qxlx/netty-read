@@ -1182,6 +1182,12 @@ public final class PlatformDependent {
         }
 
         try {
+            // sun.misc.Unsafe的类 用于执行低级别的操作 不安全的操作
+            // 直接访问的操作系统的内存资源 或者其他操作系统的处理
+            // 看类路径里是否这个Unsafe类 默认都会有
+            // 好处: 效率高
+            // 坏处: 不安全
+            // CAS 底层大量使用
             boolean hasUnsafe = PlatformDependent0.hasUnsafe();
             logger.debug("sun.misc.Unsafe: {}", hasUnsafe ? "available" : "unavailable");
             return hasUnsafe ? null : PlatformDependent0.getUnsafeUnavailabilityCause();

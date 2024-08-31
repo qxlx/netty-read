@@ -769,7 +769,7 @@ public final class NioEventLoop extends SingleThreadEventLoop {
 
     private void processSelectedKey(SelectionKey k, AbstractNioChannel ch) {
         final AbstractNioChannel.NioUnsafe unsafe = ch.unsafe();
-        // 校验处理
+        // 校验处理 检查该selectionKey是否有效,如果无效,则关闭channel
         if (!k.isValid()) {
             final EventLoop eventLoop;
             try {
@@ -791,12 +791,23 @@ public final class NioEventLoop extends SingleThreadEventLoop {
             return;
         }
 
+
+//        该方法主要是对SelectionKey k进行了检查，有如下几种不同的情况
+//
+//        1）OP_ACCEPT，接受客户端连接
+//
+//        2）OP_READ, 可读事件, 即 Channel 中收到了新数据可供上层读取。
+//
+//        3）OP_WRITE, 可写事件, 即上层可以向 Channel 写入数据。
+//
+//        4）OP_CONNECT, 连接建立事件, 即 TCP 连接已经建立, Channel 处于 active 状态。
         // 不同事件 处理不同功能
         try {
             int readyOps = k.readyOps();
             // We first need to call finishConnect() before try to trigger a read(...) or write(...) as otherwise
             // the NIO JDK channel implementation may throw a NotYetConnectedException.
             // 连接
+            // 需要移除OP_CONNECT 否则可能出现理会返回不会有任何阻塞
             if ((readyOps & SelectionKey.OP_CONNECT) != 0) {
                 // remove OP_CONNECT as otherwise Selector.select(..) will always return without blocking
                 // See https://github.com/netty/netty/issues/924
@@ -809,7 +820,7 @@ public final class NioEventLoop extends SingleThreadEventLoop {
 
             // 核心事件 判断 以及处理
             // Process OP_WRITE first as we may be able to write some queued buffers and so free memory.
-            // 写
+            // 将缓冲区中的数据发送出去,如果缓冲区数据都发送完成,清除之前关注的OP_WRITE标记
             if ((readyOps & SelectionKey.OP_WRITE) != 0) {
                 // Call forceFlush which will also take care of clear the OP_WRITE once there is nothing left to write
                unsafe.forceFlush();

@@ -381,21 +381,31 @@ public class NioSocketChannel extends AbstractNioByteChannel implements io.netty
         }
     }
 
+    // 写操作
     @Override
     protected void doWrite(ChannelOutboundBuffer in) throws Exception {
         SocketChannel ch = javaChannel();
+        // 16次
         int writeSpinCount = config().getWriteSpinCount();
         do {
+            // 如果没有要写入的数据
             if (in.isEmpty()) {
                 // All written so clear OP_WRITE
+                // 标记清楚
                 clearOpWrite();
                 // Directly return here so incompleteWrite(...) is not called.
                 return;
             }
 
             // Ensure the pending writes are made of ByteBufs only.
+            // 获取socket缓冲区的大小  SO——SNDBUF
             int maxBytesPerGatheringWrite = ((NioSocketChannelConfig) config).getMaxBytesPerGatheringWrite();
+            // 取出 一个个Entry  转换成ByteBuffer[]
+            // 1024个容量 byteBuffer
+            // maxBytesPerGatheringWrite soket缓冲区
+            // 可以动态调整socker缓冲区
             ByteBuffer[] nioBuffers = in.nioBuffers(1024, maxBytesPerGatheringWrite);
+            // 多少消息
             int nioBufferCnt = in.nioBufferCount();
 
             // Always use nioBuffers() to workaround data-corruption.
@@ -409,13 +419,18 @@ public class NioSocketChannel extends AbstractNioByteChannel implements io.netty
                     // Only one ByteBuf so use non-gathering write
                     // Zero length buffers are not added to nioBuffers by ChannelOutboundBuffer, so there is no need
                     // to check if the total size of all the buffers is non-zero.
+                    // 获取数据
                     ByteBuffer buffer = nioBuffers[0];
+                    // 获取bytebuff的大小
                     int attemptedBytes = buffer.remaining();
+                    // NIO 写操作
                     final int localWrittenBytes = ch.write(buffer);
+                    // socket缓冲区满了 关注OP_WRITE事件
                     if (localWrittenBytes <= 0) {
                         incompleteWrite(true);
                         return;
                     }
+                    // 调整socket缓冲区的大小
                     adjustMaxBytesPerGatheringWrite(attemptedBytes, localWrittenBytes, maxBytesPerGatheringWrite);
                     in.removeBytes(localWrittenBytes);
                     --writeSpinCount;

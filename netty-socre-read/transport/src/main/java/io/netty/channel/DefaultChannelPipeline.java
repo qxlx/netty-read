@@ -90,6 +90,7 @@ public class DefaultChannelPipeline implements ChannelPipeline {
 
     protected DefaultChannelPipeline(Channel channel) {
         this.channel = ObjectUtil.checkNotNull(channel, "channel");
+        // 异步处理结果
         succeededFuture = new SucceededChannelFuture(channel, null);
         voidPromise =  new VoidChannelPromise(channel, true);
 
@@ -194,14 +195,20 @@ public class DefaultChannelPipeline implements ChannelPipeline {
         return addLast(null, name, handler);
     }
 
+    // group 可以不使用IOeventLoop
+    // name 是否指定名字,默认的名字策略
+    // handler 添加的handler
     @Override
     public final ChannelPipeline addLast(EventExecutorGroup group, String name, ChannelHandler handler) {
         final AbstractChannelHandlerContext newCtx;
         synchronized (this) {
+            // 目前handler是不是已经存在pipeline
             checkMultiplicity(handler);
 
+            // 创建channelcontext
             newCtx = newContext(group, filterName(name, handler), handler);
 
+            // 添加到双向链表中
             addLast0(newCtx);
 
             // If the registered is false it means that the channel was not registered on an eventLoop yet.
@@ -219,6 +226,7 @@ public class DefaultChannelPipeline implements ChannelPipeline {
                 return this;
             }
         }
+        // 触发add方法
         callHandlerAdded0(newCtx);
         return this;
     }
@@ -277,9 +285,11 @@ public class DefaultChannelPipeline implements ChannelPipeline {
     }
 
     private String filterName(String name, ChannelHandler handler) {
+        // 如果没有默认名字 自动生成
         if (name == null) {
             return generateName(handler);
         }
+        // 查看是否有冲突
         checkDuplicateName(name);
         return name;
     }
@@ -384,11 +394,15 @@ public class DefaultChannelPipeline implements ChannelPipeline {
     }
 
     private String generateName(ChannelHandler handler) {
+        // handler 的名字,通过fastThreadLocal 把名字存储在线程中
         Map<Class<?>, String> cache = nameCaches.get();
         Class<?> handlerType = handler.getClass();
         String name = cache.get(handlerType);
+        // 如果没有名字
         if (name == null) {
+            // 生成一个名字
             name = generateName0(handlerType);
+            // 存储在线程中
             cache.put(handlerType, name);
         }
 
@@ -408,6 +422,7 @@ public class DefaultChannelPipeline implements ChannelPipeline {
     }
 
     private static String generateName0(Class<?> handlerType) {
+        // 类民#0
         return StringUtil.simpleClassName(handlerType) + "#0";
     }
 
@@ -594,11 +609,16 @@ public class DefaultChannelPipeline implements ChannelPipeline {
     private static void checkMultiplicity(ChannelHandler handler) {
         if (handler instanceof ChannelHandlerAdapter) {
             ChannelHandlerAdapter h = (ChannelHandlerAdapter) handler;
+            // added 如果添加过 true  否则就是false
+            // 是否有 @Sharable
+
+            // 没有贡献注解并且 已经添加过 抛出异常
             if (!h.isSharable() && h.added) {
                 throw new ChannelPipelineException(
                         h.getClass().getName() +
                         " is not a @Sharable handler, so can't be added or removed multiple times.");
             }
+            // 设置标志位
             h.added = true;
         }
     }
@@ -1014,6 +1034,7 @@ public class DefaultChannelPipeline implements ChannelPipeline {
         return tail.write(msg, promise);
     }
 
+    //从尾部开始调用
     @Override
     public final ChannelFuture writeAndFlush(Object msg, ChannelPromise promise) {
         return tail.writeAndFlush(msg, promise);
@@ -1392,6 +1413,7 @@ public class DefaultChannelPipeline implements ChannelPipeline {
 
         @Override
         public void channelActive(ChannelHandlerContext ctx) {
+            // head
             ctx.fireChannelActive();
 
             readIfIsAutoRead();

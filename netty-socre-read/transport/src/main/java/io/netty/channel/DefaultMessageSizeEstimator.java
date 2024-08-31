@@ -35,12 +35,14 @@ public final class DefaultMessageSizeEstimator implements MessageSizeEstimator {
 
         @Override
         public int size(Object msg) {
+            // 占用空间的大小
             if (msg instanceof ByteBuf) {
                 return ((ByteBuf) msg).readableBytes();
             }
             if (msg instanceof ByteBufHolder) {
                 return ((ByteBufHolder) msg).content().readableBytes();
             }
+            // 零拷贝 不占用JVM内存  所以这块不沾用 0
             if (msg instanceof FileRegion) {
                 return 0;
             }

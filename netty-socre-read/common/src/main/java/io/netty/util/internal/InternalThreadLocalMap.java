@@ -111,9 +111,12 @@ public final class InternalThreadLocalMap extends UnpaddedInternalThreadLocalMap
 
     public static InternalThreadLocalMap get() {
         Thread thread = Thread.currentThread();
+        // 当前是线程类型是FastThreadLocalThread
         if (thread instanceof FastThreadLocalThread) {
+            // 直接从FastThreadLocalThread 获取internalThreadLocalMap
             return fastGet((FastThreadLocalThread) thread);
         } else {
+            // 普通的threadLocal 时机上很对于普通的thread 也可以使用internalThreadLocalMap
             return slowGet();
         }
     }
@@ -127,6 +130,7 @@ public final class InternalThreadLocalMap extends UnpaddedInternalThreadLocalMap
     }
 
     private static InternalThreadLocalMap slowGet() {
+        // 其实就是ThreadLocal 保存的 InteralThreadLocal
         InternalThreadLocalMap ret = slowThreadLocalMap.get();
         if (ret == null) {
             ret = new InternalThreadLocalMap();
@@ -166,6 +170,7 @@ public final class InternalThreadLocalMap extends UnpaddedInternalThreadLocalMap
     }
 
     private static Object[] newIndexedVariableTable() {
+        // 初始化
         Object[] array = new Object[INDEXED_VARIABLE_TABLE_INITIAL_SIZE];
         Arrays.fill(array, UNSET);
         return array;
@@ -322,6 +327,7 @@ public final class InternalThreadLocalMap extends UnpaddedInternalThreadLocalMap
         this.localChannelReaderStackDepth = localChannelReaderStackDepth;
     }
 
+    // 根据下标从数组取值
     public Object indexedVariable(int index) {
         Object[] lookup = indexedVariables;
         return index < lookup.length? lookup[index] : UNSET;
@@ -332,22 +338,35 @@ public final class InternalThreadLocalMap extends UnpaddedInternalThreadLocalMap
      */
     public boolean setIndexedVariable(int index, Object value) {
         Object[] lookup = indexedVariables;
+        // 在范围内的
         if (index < lookup.length) {
+            // 获取可能存在的老值
             Object oldValue = lookup[index];
+            // 赋值操作
             lookup[index] = value;
+            // 等于object
+            // true : 说明在这个位置 没有存过东西
+            // false : 说明这个位置 已经存在过别的数据 等于覆盖
             return oldValue == UNSET;
         } else {
+            // 扩容处理
+            // 扩容的标准 使用超过多少 -- index扩容
             expandIndexedVariableTableAndSet(index, value);
             return true;
         }
     }
 
+    // 扩容的逻辑
+    // 获取老数组
+    // 创建新数组
+    // 老数组的数据 复制到新数组中
     private void expandIndexedVariableTableAndSet(int index, Object value) {
         Object[] oldArray = indexedVariables;
         final int oldCapacity = oldArray.length;
         int newCapacity;
         if (index < ARRAY_LIST_CAPACITY_EXPAND_THRESHOLD) {
             newCapacity = index;
+            // 保证是2的N次幂
             newCapacity |= newCapacity >>>  1;
             newCapacity |= newCapacity >>>  2;
             newCapacity |= newCapacity >>>  4;
@@ -358,8 +377,10 @@ public final class InternalThreadLocalMap extends UnpaddedInternalThreadLocalMap
             newCapacity = ARRAY_LIST_CAPACITY_MAX_SIZE;
         }
 
+        // 老数组拷贝到新数组中
         Object[] newArray = Arrays.copyOf(oldArray, newCapacity);
         Arrays.fill(newArray, oldCapacity, newArray.length, UNSET);
+        // 复制
         newArray[index] = value;
         indexedVariables = newArray;
     }

@@ -157,6 +157,7 @@ public class NioServerSocketChannel extends AbstractNioMessageChannel
     @Override
     protected int doReadMessages(List<Object> buf) throws Exception {
         // 创建原生的socketChannel
+        // 这里其实要是看是否是阻塞的.
         SocketChannel ch = SocketUtils.accept(javaChannel());
 
         try {

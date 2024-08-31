@@ -44,6 +44,14 @@ public class AdaptiveRecvByteBufAllocator extends DefaultMaxMessagesRecvByteBufA
 
     private static final int[] SIZE_TABLE;
 
+    // 创建一个sizeTable的list 扩容池 16 Byte
+    // 先初始化一份
+    // 16 32 48 64 ........512
+    // 有点滑动窗口的感觉
+    // 16返回0
+    // 50 返回48 2
+    // 扩容
+    // 锁容
     static {
         List<Integer> sizeTable = new ArrayList<Integer>();
         for (int i = 16; i < 512; i += 16) {
@@ -51,6 +59,7 @@ public class AdaptiveRecvByteBufAllocator extends DefaultMaxMessagesRecvByteBufA
         }
 
         // Suppress a warning since i becomes negative when an integer overflow happens
+        // 512 1024 达到Ineger的最大值
         for (int i = 512; i > 0; i <<= 1) {
             sizeTable.add(i);
         }
@@ -67,6 +76,7 @@ public class AdaptiveRecvByteBufAllocator extends DefaultMaxMessagesRecvByteBufA
     @Deprecated
     public static final AdaptiveRecvByteBufAllocator DEFAULT = new AdaptiveRecvByteBufAllocator();
 
+    // 给一个容量 判断size有没有 查找
     private static int getSizeTableIndex(final int size) {
         for (int low = 0, high = SIZE_TABLE.length - 1;;) {
             if (high < low) {
@@ -110,13 +120,19 @@ public class AdaptiveRecvByteBufAllocator extends DefaultMaxMessagesRecvByteBufA
             this.maxCapacity = maxCapacity;
         }
 
+        // 扩容 缩容的时机
         @Override
         public void lastBytesRead(int bytes) {
+            // bytes 这一次读区的数据
+            // 起读读
+
             // If we read as much as we asked for we should check if we need to ramp up the size of our next guess.
             // This helps adjust more quickly when large amounts of data is pending and can avoid going back to
             // the selector to check for more data. Going back to the selector can add significant latency for large
             // data transfers.
+            // 读到的数据 已经把bytebuf读满了, 可能没读完
             if (bytes == attemptedBytesRead()) {
+                // 扩缩容 起始点
                 record(bytes);
             }
             super.lastBytesRead(bytes);
@@ -124,6 +140,8 @@ public class AdaptiveRecvByteBufAllocator extends DefaultMaxMessagesRecvByteBufA
 
         @Override
         public int guess() {
+            // 下一次接收的大小
+            //
             return nextReceiveBufferSize;
         }
 

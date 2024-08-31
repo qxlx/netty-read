@@ -63,6 +63,7 @@ public abstract class AbstractNioByteChannel extends AbstractNioChannel {
      * @param ch                the underlying {@link SelectableChannel} on which it operates
      */
     protected AbstractNioByteChannel(Channel parent, SelectableChannel ch) {
+        // 注册一个read读的事件
         super(parent, ch, SelectionKey.OP_READ);
     }
 
@@ -133,21 +134,31 @@ public abstract class AbstractNioByteChannel extends AbstractNioChannel {
 
         @Override
         public final void read() {
+            // 1.获取配置信息
             final ChannelConfig config = config();
             if (shouldBreakReadReady(config)) {
                 clearReadPending();
                 return;
             }
+            // 2.交给pipeline
             final ChannelPipeline pipeline = pipeline();
+            // 创建分配器
             final ByteBufAllocator allocator = config.getAllocator();
+            // 服务端接收数据的大小
             final RecvByteBufAllocator.Handle allocHandle = recvBufAllocHandle();
             allocHandle.reset(config);
 
             ByteBuf byteBuf = null;
             boolean close = false;
             try {
+                // 循环的原因
+                // bytebuf 大小可能不够 需要循环处理
                 do {
+                    // 接收数据 自适应  相对于ByteBuf
+                    //0.自适应 如果数据量大,扩容 如果数据量小 缩小
+                    //1.决定ByteBuf 用的是直接内存 还是堆内存
                     byteBuf = allocHandle.allocate(allocator);
+                    //doReadBytes 通过时机IO读区数据
                     allocHandle.lastBytesRead(doReadBytes(byteBuf));
                     if (allocHandle.lastBytesRead() <= 0) {// 读区完毕
                         // nothing was read. release the buffer.
@@ -163,11 +174,13 @@ public abstract class AbstractNioByteChannel extends AbstractNioChannel {
 
                     allocHandle.incMessagesRead(1);
                     readPending = false;
+                    // 触发所有hanlder中的channelRead方法
                     pipeline.fireChannelRead(byteBuf);
                     byteBuf = null;
                 } while (allocHandle.continueReading());
                 // do while 是判断当前是否读区完数据
                 allocHandle.readComplete();
+                // 触发所有hanlder中的channelReadComplete方法
                 pipeline.fireChannelReadComplete();
 
                 if (close) {
@@ -275,6 +288,7 @@ public abstract class AbstractNioByteChannel extends AbstractNioChannel {
                 return msg;
             }
 
+            // 一定会转换成直接内存嘛
             return newDirectBuffer(buf);
         }
 
@@ -346,6 +360,7 @@ public abstract class AbstractNioByteChannel extends AbstractNioChannel {
         }
         final int interestOps = key.interestOps();
         if ((interestOps & SelectionKey.OP_WRITE) != 0) {
+            // 去除标记
             key.interestOps(interestOps & ~SelectionKey.OP_WRITE);
         }
     }

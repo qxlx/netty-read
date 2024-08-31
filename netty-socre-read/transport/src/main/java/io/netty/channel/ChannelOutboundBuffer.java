@@ -59,7 +59,9 @@ public final class ChannelOutboundBuffer {
     //  - 2 long fields
     //  - 2 int fields
     //  - 1 boolean field
-    //  - padding
+    //  - padding  对其填充
+
+    // 操作系统 灵活性, 如果替换操作系统的时候, 可以修改这个值
     static final int CHANNEL_OUTBOUND_BUFFER_ENTRY_OVERHEAD =
             SystemPropertyUtil.getInt("io.netty.transport.outboundBufferEntrySizeOverhead", 96);
 
@@ -112,15 +114,23 @@ public final class ChannelOutboundBuffer {
      * Add given message to this {@link ChannelOutboundBuffer}. The given {@link ChannelPromise} will be notified once
      * the message was written.
      */
+    // 把所有的添加成一个链表 创建链表
+    // entry0->unflushedEntry->entry1->entry2->entry3->null
     public void addMessage(Object msg, int size, ChannelPromise promise) {
+        // 创建一个Entry 对象
         Entry entry = Entry.newInstance(msg, size, total(msg), promise);
+        // 尾部也没有
         if (tailEntry == null) {
+            // flushedEntry 设置为null
             flushedEntry = null;
         } else {
             Entry tail = tailEntry;
             tail.next = entry;
         }
+        // 生成的为头部
         tailEntry = entry;
+
+        // 设置为unflushedEntry
         if (unflushedEntry == null) {
             unflushedEntry = entry;
         }
@@ -137,6 +147,7 @@ public final class ChannelOutboundBuffer {
 
         // increment pending bytes after adding message to the unflushed arrays.
         // See https://github.com/netty/netty/issues/1619
+        // 高水位线,防止netty消息的堆积
         incrementPendingOutboundBytes(entry.pendingSize, false);
     }
 
@@ -144,6 +155,7 @@ public final class ChannelOutboundBuffer {
      * Add a flush to this {@link ChannelOutboundBuffer}. This means all previous added messages are marked as flushed
      * and so you will be able to handle them.
      */
+    // // entry0->flushedEntry->entry1->entry2->entry3->null
     public void addFlush() {
         // There is no need to process all entries if there was already a flush before and no new messages
         // where added in the meantime.
@@ -151,6 +163,7 @@ public final class ChannelOutboundBuffer {
         // See https://github.com/netty/netty/issues/2577
         Entry entry = unflushedEntry;
         if (entry != null) {
+            // 将原来的entry0 设置为flushedEntry
             if (flushedEntry == null) {
                 // there is no flushedEntry yet, so start with the entry
                 flushedEntry = entry;
@@ -183,8 +196,11 @@ public final class ChannelOutboundBuffer {
             return;
         }
 
+        // CAS 计算
         long newWriteBufferSize = TOTAL_PENDING_SIZE_UPDATER.addAndGet(this, size);
+        // 超过水位线 不可写
         if (newWriteBufferSize > channel.config().getWriteBufferHighWaterMark()) {
+            // 不可写
             setUnwritable(invokeLater);
         }
     }
@@ -435,6 +451,10 @@ public final class ChannelOutboundBuffer {
         assert maxBytes > 0;
         long nioBufferSize = 0;
         int nioBufferCount = 0;
+        // 从threadLocal当中获取
+        // netty体系中, netty线程本地变量
+        // byteBuffer 不是现用 现创建
+        // 预先存储到Thread里,通过ThreadLocal获取操作 设置
         final InternalThreadLocalMap threadLocalMap = InternalThreadLocalMap.get();
         ByteBuffer[] nioBuffers = NIO_BUFFERS.get(threadLocalMap);
         Entry entry = flushedEntry;
@@ -824,6 +844,11 @@ public final class ChannelOutboundBuffer {
         boolean processMessage(Object msg) throws Exception;
     }
 
+    // 链表结构
+    // unflush -> addMessage  仅仅创建 没有flush()处理
+    // flushEntry -> addflush() 只有状态为flushENtry的entry 才能被NIO进行输出
+    // tailEntry -> 链表的尾部
+    //
     static final class Entry {
         private static final ObjectPool<Entry> RECYCLER = ObjectPool.newPool(new ObjectCreator<Entry>() {
             @Override
@@ -849,6 +874,7 @@ public final class ChannelOutboundBuffer {
         }
 
         static Entry newInstance(Object msg, int size, long total, ChannelPromise promise) {
+            // 对象池创建的频次
             Entry entry = RECYCLER.get();
             entry.msg = msg;
             entry.pendingSize = size + CHANNEL_OUTBOUND_BUFFER_ENTRY_OVERHEAD;

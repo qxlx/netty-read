@@ -35,9 +35,14 @@ public interface Timer {
      * @throws RejectedExecutionException if the pending timeouts are too many and creating new timeout
      *                                    can cause instability in the system.
      */
+    // TimeOut 定时任务 延时任务
+    // task 工作内容
+    // delay 延时时间
+    // unit 时间单位
     Timeout newTimeout(TimerTask task, long delay, TimeUnit unit);
 
     /**
+     * 停止定时任务
      * Releases all resources acquired by this {@link Timer} and cancels all
      * tasks which were scheduled but not executed yet.
      *
