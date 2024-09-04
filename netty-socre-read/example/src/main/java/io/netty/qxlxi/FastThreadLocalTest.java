@@ -27,7 +27,10 @@ public class FastThreadLocalTest {
 
             Thread thread = Thread.currentThread();
             System.out.println(thread);
+
+            fastThreadLocal.remove();
         },"T1");
+
 
         fastThreadLocalThread.start();
 
