@@ -117,10 +117,14 @@ final class PoolChunkList<T> implements PoolChunkListMetric {
     }
 
     boolean free(PoolChunk<T> chunk, long handle, int normCapacity, ByteBuffer nioBuffer) {
+
         chunk.free(handle, normCapacity, nioBuffer);
         if (chunk.freeBytes > freeMaxThreshold) {
+            // 当前PoolChunkList删除
             remove(chunk);
             // Move the PoolChunk down the PoolChunkList linked-list.
+            // 移动到前一个PoolChunkList
+            // 把Chunk放置到前一个PoolChunkList中
             return move0(chunk);
         }
         return true;
@@ -135,6 +139,7 @@ final class PoolChunkList<T> implements PoolChunkListMetric {
         }
 
         // PoolChunk fits into this PoolChunkList, adding it here.
+        // 如果chunk的使用率满足要求
         add0(chunk);
         return true;
     }
@@ -145,6 +150,7 @@ final class PoolChunkList<T> implements PoolChunkListMetric {
      */
     private boolean move0(PoolChunk<T> chunk) {
         if (prevList == null) {
+            // q000 销毁
             // There is no previous PoolChunkList so return false which result in having the PoolChunk destroyed and
             // all memory associated with the PoolChunk will be released.
             assert chunk.usage() == 0;
@@ -179,12 +185,14 @@ final class PoolChunkList<T> implements PoolChunkListMetric {
     }
 
     private void remove(PoolChunk<T> cur) {
+        // 只有头节点
         if (cur == head) {
             head = cur.next;
             if (head != null) {
                 head.prev = null;
             }
         } else {
+            // 断开关系
             PoolChunk<T> next = cur.next;
             cur.prev.next = next;
             if (next != null) {
